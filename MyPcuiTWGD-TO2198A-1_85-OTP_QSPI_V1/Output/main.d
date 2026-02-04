@@ -93,5 +93,7 @@
 .\output\main.o: .\in_img\in_img2.h
 .\output\main.o: .\EXMODULE\scanner.h
 .\output\main.o: C:\app\Keil5\ARM\ARMCC\Bin\..\include\math.h
+.\output\main.o: USER\User_UI.h
+.\output\main.o: .\S10DRV\S10.h
 .\output\main.o: C:\app\Keil5\ARM\ARMCC\Bin\..\include\ctype.h
 .\output\main.o: C:\app\Keil5\ARM\ARMCC\Bin\..\include\stdbool.h

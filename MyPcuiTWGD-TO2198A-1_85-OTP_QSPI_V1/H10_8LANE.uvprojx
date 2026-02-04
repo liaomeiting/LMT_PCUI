@@ -505,6 +505,11 @@
               <FileType>1</FileType>
               <FilePath>.\USER\exti.c</FilePath>
             </File>
+            <File>
+              <FileName>User_UI.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\USER\User_UI.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -1679,6 +1684,11 @@
               <FileName>exti.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\USER\exti.c</FilePath>
+            </File>
+            <File>
+              <FileName>User_UI.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\USER\User_UI.c</FilePath>
             </File>
           </Files>
         </Group>
