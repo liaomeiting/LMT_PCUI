@@ -1,0 +1,3 @@
+--create .\Output\gamma.lib
+.\output\gammarun.o
+.\output\gammalinear.o

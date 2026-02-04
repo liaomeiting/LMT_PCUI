@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<IAPBData xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="abc.abc">
+  <page>0</page>
+  <com>COM3</com>
+  <IAPBD>
+    <IAPBD Name="s10主程序" path="D:\程序\！维信诺\G1207TR108GF(翠华山2.07)\SK-新模板-4\Output\H10_8LANE.hex">
+      <page>0</page>
+      <n>0</n>
+      <type>1</type>
+      <id>0</id>
+      <check>1</check>
+      <startAdress>134283264</startAdress>
+    </IAPBD>
+    <IAPBD Name="s10电源板" path="">
+      <page>0</page>
+      <n>1</n>
+      <type>11</type>
+      <id>0</id>
+      <check>0</check>
+      <startAdress>134283264</startAdress>
+    </IAPBD>
+    <IAPBD Name="AG6D主程序" path="">
+      <page>1</page>
+      <n>2</n>
+      <type>1</type>
+      <id>0</id>
+      <check>1</check>
+      <startAdress>134283264</startAdress>
+    </IAPBD>
+    <IAPBD Name="AG6D电源板" path="">
+      <page>1</page>
+      <n>3</n>
+      <type>10</type>
+      <id>0</id>
+      <check>0</check>
+      <startAdress>134250496</startAdress>
+    </IAPBD>
+    <IAPBD Name="AG6D背光板" path="">
+      <page>1</page>
+      <n>4</n>
+      <type>9</type>
+      <id>0</id>
+      <check>0</check>
+      <startAdress>134250496</startAdress>
+    </IAPBD>
+    <IAPBD Name="扫码枪" path="">
+      <page>2</page>
+      <n>5</n>
+      <type>13</type>
+      <id>0</id>
+      <check>0</check>
+      <startAdress>134250496</startAdress>
+    </IAPBD>
+    <IAPBD Name="CFL镜头" path="">
+      <page>2</page>
+      <n>6</n>
+      <type>12</type>
+      <id>0</id>
+      <check>0</check>
+      <startAdress>134283264</startAdress>
+    </IAPBD>
+    <IAPBD Name="CFL转板" path="">
+      <page>2</page>
+      <n>7</n>
+      <type>15</type>
+      <id>0</id>
+      <check>0</check>
+      <startAdress>134250496</startAdress>
+    </IAPBD>
+    <IAPBD Name="h10核心板" path="">
+      <page>3</page>
+      <n>8</n>
+      <type>1</type>
+      <id>0</id>
+      <check>1</check>
+      <startAdress>134283264</startAdress>
+    </IAPBD>
+    <IAPBD Name="h10电源板" path="">
+      <page>3</page>
+      <n>9</n>
+      <type>11</type>
+      <id>0</id>
+      <check>0</check>
+      <startAdress>134283264</startAdress>
+    </IAPBD>
+    <IAPBD Name="hi8核心板" path="">
+      <page>4</page>
+      <n>10</n>
+      <type>1</type>
+      <id>0</id>
+      <check>1</check>
+      <startAdress>134283264</startAdress>
+    </IAPBD>
+    <IAPBD Name="hi8电源板" path="">
+      <page>4</page>
+      <n>11</n>
+      <type>11</type>
+      <id>0</id>
+      <check>0</check>
+      <startAdress>134283264</startAdress>
+    </IAPBD>
+    <IAPBD Name="hi8FPGA" path="">
+      <page>4</page>
+      <n>12</n>
+      <type>255</type>
+      <id>0</id>
+      <check>0</check>
+      <startAdress>0</startAdress>
+    </IAPBD>
+    <IAPBD Name="多机下载" path="">
+      <page>5</page>
+      <n>13</n>
+      <type>254</type>
+      <id>0</id>
+      <check>1</check>
+      <startAdress>134283264</startAdress>
+    </IAPBD>
+    <IAPBD Name="k1000核心板" path="">
+      <page>6</page>
+      <n>14</n>
+      <type>1</type>
+      <id>0</id>
+      <check>1</check>
+      <startAdress>134283264</startAdress>
+    </IAPBD>
+    <IAPBD Name="k1000电源板" path="">
+      <page>6</page>
+      <n>15</n>
+      <type>11</type>
+      <id>0</id>
+      <check>0</check>
+      <startAdress>134283264</startAdress>
+    </IAPBD>
+    <IAPBD Name="k1000FPGA" path="">
+      <page>6</page>
+      <n>16</n>
+      <type>255</type>
+      <id>0</id>
+      <check>0</check>
+      <startAdress>0</startAdress>
+    </IAPBD>
+  </IAPBD>
+</IAPBData>
