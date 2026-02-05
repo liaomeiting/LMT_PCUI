@@ -33,7 +33,7 @@ void QSPI_LCD_IO_Init(void);
 
 /*不要调用这个函数*/
 void QSPI_LCD_PackWrite(uint8_t cmd, int data, ...);
-
+void QSPI_LCD_PackWrite_2(uint8_t cmd,uint16_t *data, uint32_t data_len);
 /*
 *函数名 : QSPI_LCD_WriteCmd
 *描述   : 写命令用的，用于写初始化代码。
@@ -41,8 +41,6 @@ void QSPI_LCD_PackWrite(uint8_t cmd, int data, ...);
 *返回   :无
 */
 #define QSPI_LCD_WriteCmd(cmd,data,...)  QSPI_LCD_PackWrite(cmd,data,##__VA_ARGS__,-1)
-
-void QSPI_LCD_PackWrite_2(uint8_t cmd, uint16_t *data, uint32_t data_len);
 
 /*
 *函数名 : QSPI_LCD_ReadData
@@ -98,6 +96,9 @@ void QSPI_LCD_CS_AllOut(uint8_t cs_bit, uint8_t level);
 *返回   :无
 */
 void QSPI_LCD_WrByte(uint8_t dat);
+
+
+//void QSPI_LCD_PackWrite_2(uint8_t cmd,uint8_t map1,uint8_t map2,uint8_t map3,uint8_t map4,uint16_t *data, uint32_t data_len);
 
 #endif
 

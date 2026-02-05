@@ -857,9 +857,10 @@ void SSD2828_MIPIPackWrite(u8 DT, int data, ...)
           3. data_array - 要MIPI传送的数组
 *返回   : 无
 */
-void MIPI_WrArray(u8 DT, int len, u8 *data_array)
+void MIPI_WrArray(u8 DT,unsigned char cmd, int len, u8 *data_array)
 {
     int i;
+		len = len+1;
     switch(DT)
     {
         case 0x39:
@@ -881,8 +882,10 @@ void MIPI_WrArray(u8 DT, int len, u8 *data_array)
             SSD2828_GenericShortWrite(len);
             break;
     }
+		
+		SSD2828_WriteData(cmd);
     
-    for(i=0; i<len; i++)
+    for(i=0; i<len-1; i++)
     {
         SSD2828_WriteData(data_array[i]);
     }

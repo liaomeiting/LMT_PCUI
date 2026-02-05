@@ -15,8 +15,11 @@ extern unsigned int Alarm_STA;
 extern unsigned int frame_hold_cnt;
 extern unsigned int frame_hold_ms[];
 extern int yanstate;
-
-#define MAX_PARAMS 16
+extern InImg2_Adapter img2_adapter;
+extern void Sleep_In(void);
+extern void Sleep_Out(void);
+PcuiConfigStruct UserPcuiConfig;
+#define MAX_PARAMS 20  // 支持最多n个参数
 
 void PowerOn(void)
 {
@@ -101,20 +104,29 @@ void KEY_Enter(void)
 
 void User_UI(void)
 {
+	// 所有按钮名称数组
+    char* buttonNames[] = {
+        "PowerOn", "PowerOFF", "KEY_DOWN", "KEY_UP", "KEY_Enter",
+        "Sleep In", "Sleep Out"
+    };
+	const int totalButtons = sizeof(buttonNames) / sizeof(buttonNames[0]);
+	const int buttonsPerRow = 5;  // 每行n个按钮
     int x = 50, y = 50, x_spacing = 150, y_spacing = 70, box_width = 130, box_height = 50, font_size = 14;
 	selectShowPage(2);
 	clearWidget();
-	creatButtonPage4("PowerOn", x, y, box_height, box_width, font_size);
-	creatButtonPage4("PowerOFF", x+(x_spacing*1), y, box_height, box_width, font_size);
-	creatButtonPage4("KEY_DOWN", x+(x_spacing*2), y, box_height, box_width, font_size);
-	creatButtonPage4("KEY_UP", x+(x_spacing*3), y, box_height, box_width, font_size);
-	creatButtonPage4("KEY_Enter", x+(x_spacing*4), y, box_height, box_width, font_size);
-
-	creatButtonPage4("Auto_VCOM", x, y+(y_spacing*1), box_height, box_width, font_size);
-	creatButtonPage4("Send_Cmd", x+(x_spacing*1), y+(y_spacing*1), box_height, box_width, font_size);
-	creatButtonPage4("Read111", x+(x_spacing*2), y+(y_spacing*1), box_height, box_width, font_size);
-	creatButtonPage4("Sleep In", x+(x_spacing*3), y+(y_spacing*1), box_height, box_width, font_size);
-	creatButtonPage4("Sleep Out", x+(x_spacing*4), y+(y_spacing*1), box_height, box_width, font_size);
+	for (int i = 0; i < totalButtons; i++) {
+        int row = i / buttonsPerRow;
+        int col = i % buttonsPerRow;
+        
+        creatButtonPage4(
+            buttonNames[i],
+            x + (col * x_spacing),   
+            y + (row * y_spacing),   
+            box_height,
+            box_width,
+            font_size
+        );
+    }
 
     setLineEdit_ParameterPage4(x,y+(y_spacing*2), 150, font_size,0xffffff,1,"SwitchFrame","255,255,255");
 	creatButtonPage4("Change", x+315, 46+(y_spacing*2), 45, 100, font_size);
@@ -130,16 +142,28 @@ void User_UI(void)
 	MysetLineEdit_ParameterPage4(x,y+(y_spacing*2.6),600,250,font_size,0xffffff,1,"Send_Cmd","");
 	creatButtonPage4("OK", x+760, y+(y_spacing*2.6)+215, 45, 100, font_size);
 
-    setLineEdit_ParameterPage4(x,y+450, 150, font_size,0xffffff,1,"Read_Reg","0x01");
+    setLineEdit_ParameterPage4(x,y+450, 150, font_size,0xffffff,1,"Read_Reg","0x01,1");
 	creatButtonPage4("Read", x+355, 46+450, 45, 100, font_size);
-    setLineEdit_ParameterPage4(50,550, 150, font_size,0xffffff,1,"result","");
+    setLineEdit_ParameterPage4(50,550, 300, font_size,0xffffff,1,"result","");
+
+	UserPcuiConfig.poweron = PowerOn;
+	UserPcuiConfig.poweroff = PowerOFF;
+	UserPcuiConfig.keydown = KEYDOWN;
+	UserPcuiConfig.keyenter = KEY_Enter;
+	UserPcuiConfig.keyup = KEYUP;
+	UserPcuiConfig.sleepin = Sleep_In;
+	UserPcuiConfig.sleepout = Sleep_Out;
 }
 int User_Event(void)
 {
 	static char pcui_cmd[512];
 	static char get_line_str[2048];
+	uint8_t frame_Set = 50; //MIPI
 	int r, g, b;
-    int result,Reg;
+    int result,len;
+	uint8_t ReadCode[12];
+	uint16_t ReadCode1[12];
+    uint8_t Reg;
 	int online = userUI_Online(); // 检测上位机是否在线
 	if (online >= 0 && pcui_getCmd(pcui_cmd) >= 0)
 	{
@@ -150,27 +174,35 @@ int User_Event(void)
 		{
 			if (display_on == 0)
 			{
-				PowerOn();
+				UserPcuiConfig.poweron();
 			}
 		}
 		else if (pcui_Scan(pcui_cmd, "button:PowerOFF") >= 0)
 		{
 			if (display_on == 1)
 			{
-				PowerOFF();
+				UserPcuiConfig.poweroff();
 			}
 		}
 		else if (pcui_Scan(pcui_cmd, "button:KEY_DOWN") >= 0)
 		{
-			KEYDOWN();
+			UserPcuiConfig.keydown();
 		}
 		else if (pcui_Scan(pcui_cmd, "button:KEY_UP") >= 0)
 		{
-			KEYUP();
+			UserPcuiConfig.keyup();
 		}
 		else if (pcui_Scan(pcui_cmd, "button:KEY_Enter") >= 0)
 		{
-			KEY_Enter();
+			UserPcuiConfig.keyenter();
+		}
+		else if (pcui_Scan(pcui_cmd, "button:Sleep In") >= 0)
+		{
+			UserPcuiConfig.sleepin();
+		}
+		else if (pcui_Scan(pcui_cmd, "button:Sleep Out") >= 0)
+		{
+			UserPcuiConfig.sleepout();
 		}
 		else if (pcui_Scan(pcui_cmd, "button:Change") >= 0)
 		{
@@ -182,8 +214,17 @@ int User_Event(void)
 			}
 			if(display_on==1)
 			{
-				// SPI
+#if SIGNAL==1 // SPI
 				Img_Full(r, g, b);
+#elif SIGNAL==2 // QSPI
+				QSPI_LCD_CS_AllOut(QSPI_LCD_A_CS_BIT, 0);
+				InImg2_Full(&img2_adapter,r,g,b);
+				QSPI_LCD_CS_AllOut(QSPI_LCD_A_CS_BIT, 1); 
+#elif SIGNAL==3 // MIPI
+				GPU_LoadFrame(frame_Set); // 1  normal模式
+				Img_Full(r, g, b);
+				GPU_DisplayFrame(frame_Set);
+#endif
 			}
 			else
 			{
@@ -193,20 +234,41 @@ int User_Event(void)
 		else if (pcui_Scan(pcui_cmd, "button:OK") >= 0)
 		{
             getLineEdit_ContentPage4("Send_Cmd",get_line_str);
-			parse_and_execute_spi_writes(get_line_str);
+			parse_and_execute_commands(get_line_str);
 		}
 		else if (pcui_Scan(pcui_cmd, "button:Read") >= 0)
 		{
             getLineEdit_ContentPage4("Read_Reg",get_line_str);
-			if (sscanf(get_line_str, "0x%02x", &Reg) == 1) 
+			if (sscanf(get_line_str, "0x%x,%d", &Reg, &len) == 2) 
 			{
-				result = SPI_Read(Reg); // 格式正确，调用 SPI_Read
-				sprintf(get_line_str,"%s:0x%02x",get_line_str,result);
-				setLineEdit_ParameterPage4(50,550, 150, 14,0xffffff,1,"result",get_line_str);
+                if(len>30 || len< 1 ) setDialog("回读长度不符合",0);
+                else
+                {
+#if SIGNAL==1
+                    SPI_Read_Buffer(Reg,ReadCode1,len); 
+#elif SIGNAL==2
+                    QSPI_LCD_ReadData(Reg,len,ReadCode);
+#elif SIGNAL==3
+                    SSD2828_DcsReadDT06(Reg,len,ReadCode);
+#endif
+                    sprintf(get_line_str,"%s:",get_line_str);
+                    for (uint8_t i = 0; i < len; i++)
+                    {
+#if SIGNAL==1
+                        if(i == len-1) sprintf(get_line_str,"%s0x%02x",get_line_str,ReadCode1[i]);
+                        else sprintf(get_line_str,"%s0x%02x,",get_line_str,ReadCode1[i]);
+#else
+                        if(i == len-1) sprintf(get_line_str,"%s0x%02x",get_line_str,ReadCode[i]);
+                        else sprintf(get_line_str,"%s0x%02x,",get_line_str,ReadCode[i]);
+#endif
+					}				
+                    setLineEdit_ParameterPage4(50,550, 300, 14,0xffffff,1,"result",get_line_str);
+                }
 			}	
 			else
 			{
 				setDialog("格式不符合!",0);
+                _DEBUG("%s\r\n",get_line_str);
 			}
 		}
 		else if (pcui_Scan(pcui_cmd, "button:Change2") >= 0)
@@ -214,7 +276,8 @@ int User_Event(void)
 			if(display_on)
 			{
 				getComboBox("SwitchFrame2",get_line_str);
-				if(strcmp(get_line_str,"Img_Gray256_V")==0)
+#if SIGNAL==1
+                if(strcmp(get_line_str,"Img_Gray256_V")==0)
 				{
 					Img_Gray256_V();
 				}
@@ -242,6 +305,93 @@ int User_Event(void)
 				{
 					Img_Flicker();
 				}
+#elif SIGNAL==2
+                if(strcmp(get_line_str,"Img_Gray256_V")==0)
+				{
+                    QSPI_LCD_CS_AllOut(QSPI_LCD_A_CS_BIT, 0);
+					InImg2_Gray256_V(&img2_adapter);
+                    QSPI_LCD_CS_AllOut(QSPI_LCD_A_CS_BIT, 1); 
+				}
+				else if(strcmp(get_line_str,"Img_Gray256_H")==0)
+				{
+                    QSPI_LCD_CS_AllOut(QSPI_LCD_A_CS_BIT, 0);
+					InImg2_Gray256_H(&img2_adapter);
+                    QSPI_LCD_CS_AllOut(QSPI_LCD_A_CS_BIT, 1); 
+				}
+				else if(strcmp(get_line_str,"Img_CT")==0)
+				{
+                    QSPI_LCD_CS_AllOut(QSPI_LCD_A_CS_BIT, 0);
+					InImg2_CT(&img2_adapter);
+                    QSPI_LCD_CS_AllOut(QSPI_LCD_A_CS_BIT, 1); 
+				}
+				else if(strcmp(get_line_str,"Img_Box")==0)
+				{
+                    QSPI_LCD_CS_AllOut(QSPI_LCD_A_CS_BIT, 0);
+					InImg2_Box(&img2_adapter);
+                    QSPI_LCD_CS_AllOut(QSPI_LCD_A_CS_BIT, 1); 
+				}
+				else if(strcmp(get_line_str,"Img_Chcker58")==0)
+				{
+                    QSPI_LCD_CS_AllOut(QSPI_LCD_A_CS_BIT, 0);
+					InImg2_Chcker58(&img2_adapter);
+                    QSPI_LCD_CS_AllOut(QSPI_LCD_A_CS_BIT, 1); 
+				}
+				else if(strcmp(get_line_str,"Img_ColorBar")==0)
+				{
+                    QSPI_LCD_CS_AllOut(QSPI_LCD_A_CS_BIT, 0);
+					InImg2_ColorBar(&img2_adapter);
+                    QSPI_LCD_CS_AllOut(QSPI_LCD_A_CS_BIT, 1); 
+				}
+				else if(strcmp(get_line_str,"Img_Flicker")==0)
+				{
+                    QSPI_LCD_CS_AllOut(QSPI_LCD_A_CS_BIT, 0);
+					InImg2_Flicker(&img2_adapter);
+                    QSPI_LCD_CS_AllOut(QSPI_LCD_A_CS_BIT, 1); 
+				}
+#elif SIGNAL==3
+                if(strcmp(get_line_str,"Img_Gray256_V")==0)
+				{
+					GPU_LoadFrame(frame_Set); // 1  normal模式
+					Img_Gray256_V();
+					GPU_DisplayFrame(frame_Set);
+				}
+				else if(strcmp(get_line_str,"Img_Gray256_H")==0)
+				{
+					GPU_LoadFrame(frame_Set); // 1  normal模式
+					Img_Gray256_H();
+					GPU_DisplayFrame(frame_Set);
+				}
+				else if(strcmp(get_line_str,"Img_CT")==0)
+				{
+					GPU_LoadFrame(frame_Set); // 1  normal模式
+					Img_CT();
+					GPU_DisplayFrame(frame_Set);
+				}
+				else if(strcmp(get_line_str,"Img_Box")==0)
+				{
+					GPU_LoadFrame(frame_Set); // 1  normal模式
+					Img_Box();
+					GPU_DisplayFrame(frame_Set);
+				}
+				else if(strcmp(get_line_str,"Img_Chcker58")==0)
+				{
+					GPU_LoadFrame(frame_Set); // 1  normal模式
+					Img_Chcker58();
+					GPU_DisplayFrame(frame_Set);
+				}
+				else if(strcmp(get_line_str,"Img_ColorBar")==0)
+				{
+					GPU_LoadFrame(frame_Set); // 1  normal模式
+					Img_ColorBar();
+					GPU_DisplayFrame(frame_Set);
+				}
+				else if(strcmp(get_line_str,"Img_Flicker")==0)
+				{
+					GPU_LoadFrame(frame_Set); // 1  normal模式
+					Img_Flicker();
+					GPU_DisplayFrame(frame_Set);
+				}
+#endif
 				else
 				{
 					setDialog("函数未添加!",0);
@@ -303,6 +453,7 @@ int MysetLineEdit_ParameterPage4(int x1, int y1, int width, int height,int size,
 	return pcui_recData(&pcui.pcuiRecType, setDataStr, sizeof(setDataStr) / sizeof(setDataStr[0]), 0, 2000);
 }
 
+
 // 辅助函数：去除字符串中的所有空格
 void remove_all_spaces(char *str) {
     if (!str || *str == '\0') return;
@@ -316,25 +467,34 @@ void remove_all_spaces(char *str) {
     *dest = '\0';
 }
 
-// 辅助函数：解析十六进制字符串（支持 "0xFE"、"FE" 或 "0xFE"）
-int parse_hex(const char *str) {
+// 辅助函数：解析十六进制字符串（支持 "0xFE"、"FE" 或 "FE"）
+// 返回 -1 表示失败，否则返回 0~255 的值
+int parse_hex(const char *str, uint8_t *out_value) {
+    if (!str || !out_value) return -1;
+
     char buf[16] = {0};
     strncpy(buf, str, sizeof(buf) - 1);
     remove_all_spaces(buf); // 确保参数中没有空格
 
-    uint8_t value;
-    if (sscanf(buf, "0x%02hhX", &value) == 1 || sscanf(buf, "%02hhX", &value) == 1) {
-        return value;
+    uint32_t value;
+    if (sscanf(buf, "0x%x", &value) == 1 || sscanf(buf, "%x", &value) == 1) {
+        if (value <= 0xFF) {  // 确保值在 0~255 范围内
+            *out_value = (uint8_t)value;
+            return 0; // 成功
+        }
     }
-    return -1;
+    return -1; // 解析失败
 }
 
-void parse_and_execute_spi_writes(const char *input) {
+// 解析并执行 SPI 或 QSPI 指令
+void parse_and_execute_commands(const char *input) {
+    if (!input) return;
+
     const char *current = input;
-    char line[256] = {0};
+    char line[128] = {0};
 
     while (*current) {
-        // 读取一行
+        // 读取一行（跳过前导空格）
         size_t line_len = 0;
         while (*current && *current != '\n') {
             if (line_len < sizeof(line) - 1) {
@@ -343,87 +503,99 @@ void parse_and_execute_spi_writes(const char *input) {
             current++;
         }
         line[line_len] = '\0';
+        if (*current == '\n') current++; // 跳过换行符
 
-        // 去除行中的所有空格（包括中间的空格）
+        // 去除整行空格和注释
         remove_all_spaces(line);
-
-        // 跳过空行和注释行
         if (strlen(line) == 0 || strstr(line, "//") == line) {
-            if (*current == '\n') current++;
-            continue;
+            continue; // 跳过空行和注释
         }
 
-        // 查找 '(' 和 ')'，提取中间的内容
+        // 检查指令类型
+        bool is_spi = (strstr(line, "SPI_Write(") == line);
+        bool is_qspi = (strstr(line, "QSPI_LCD_WriteCmd(") == line);
+		bool is_mipi = (strstr(line, "MIPI_WR(") == line);
+
+        if (!is_spi && !is_qspi && !is_mipi) {
+            continue; // 不是有效指令行
+        }
+
+        // 提取括号内的参数
         char *start = strchr(line, '(');
         char *end = strchr(line, ')');
 
-        if (start && end && start < end) {
-            start++; // 跳过 '('
-            *end = '\0'; // 临时截断字符串，方便分割
+        if (!start || !end || start >= end) {
+            _DEBUG("Error: Invalid syntax -> %s\n", line);
+            continue;
+        }
 
-            // 分割参数（以逗号分隔）
-            char *params[MAX_PARAMS] = {0};
-            int param_count = 0;
-            char *token = strtok(start, ",");
+        start++; // 跳过 '('
+        *end = '\0'; // 临时截断字符串
 
-            while (token && param_count < MAX_PARAMS) {
-                params[param_count++] = token;
-                token = strtok(NULL, ",");
-            }
+        // 分割参数（以逗号分隔）
+        char *params[MAX_PARAMS] = {0};
+        int param_count = 0;
+        char *token = strtok(start, ",");
 
-            // 恢复原始字符串（可选）
-            *end = ')';
+        while (token && param_count < MAX_PARAMS) {
+            params[param_count++] = token;
+            token = strtok(NULL, ",");
+        }
 
-            // 解析参数并调用 SPI_Write
-            if (param_count > 0) {
-                uint8_t reg = parse_hex(params[0]); // 第一个参数是寄存器地址
-                if (reg == (uint8_t)-1) {
-                    _DEBUG("Error: Invalid register address -> %s\n", params[0]);
-                    continue;
-                }
+        *end = ')'; // 恢复原始字符串
 
-                // 其余参数是数据，逐个调用 SPI_Write
-                for (int i = 1; i < param_count; i++) {
-                    uint8_t data = parse_hex(params[i]);
-                    if (data == (uint8_t)-1) {
-                        _DEBUG("Error: Invalid data -> %s\n", params[i]);
-                        continue;
-                    }
-                    SPI_Write(reg, data); // 真正调用 SPI_Write
-                    _DEBUG("0x%02x,0x%02x\r\n", reg, data);
-                }
-            }
-        } else {
-            // 如果没有括号，尝试直接解析（如 "0xFE,0xD0"）
-            char *params[MAX_PARAMS] = {0};
-            int param_count = 0;
-            char *token = strtok(line, ",");
+        // 解析参数并调用对应函数
+        uint8_t parsed_params[MAX_PARAMS] = {0};
+        bool valid = true;
 
-            while (token && param_count < MAX_PARAMS) {
-                params[param_count++] = token;
-                token = strtok(NULL, ",");
-            }
-
-            if (param_count > 0) {
-                uint8_t reg = parse_hex(params[0]);
-                if (reg == (uint8_t)-1) {
-                    _DEBUG("Error: Invalid register address -> %s\n", params[0]);
-                    continue;
-                }
-
-                for (int i = 1; i < param_count; i++) {
-                    uint8_t data = parse_hex(params[i]);
-                    if (data == (uint8_t)-1) {
-                        _DEBUG("Error: Invalid data -> %s\n", params[i]);
-                        continue;
-                    }
-                    SPI_Write(reg, data);
-                }
+        for (int i = 0; i < param_count; i++) {
+            if (parse_hex(params[i], &parsed_params[i]) != 0) {
+                _DEBUG("Error: Invalid parameter -> %s\n", params[i]);
+                valid = false;
+                break;
             }
         }
 
-        // 移动到下一行
-        if (*current == '\n') current++;
+        if (valid) {
+            if (is_spi && param_count >= 2) {
+				SPI_WriteParams(parsed_params[0],&parsed_params[1],param_count-1);
+            } 
+            else if (is_qspi && param_count >= 2) {
+                if (param_count == 2) {
+                    QSPI_LCD_WriteCmd(parsed_params[0], parsed_params[1]);
+                } 
+                else if (param_count == 3) {
+                    QSPI_LCD_WriteCmd(parsed_params[0], parsed_params[1], parsed_params[2]);
+                } 
+                else {
+                    _DEBUG("Error: Invalid parameter count for QSPI_LCD_WriteCmd\n");
+                }
+            }
+			else if (is_mipi && param_count >= 2) {
+                // 第一个参数是数据类型(DT)
+                uint8_t dt = parsed_params[0];
+                // 第二个参数是命令(cmd)
+                uint8_t cmd = parsed_params[1];
+                // 剩余参数是数据
+                uint8_t data[MAX_PARAMS - 2];
+                int data_count = param_count - 2;
+                
+                // 复制数据部分
+                for (int i = 0; i < data_count; i++) {
+                    data[i] = parsed_params[i + 2];
+                }
+                
+                // 调用MIPI写入函数
+                MIPI_WrArray(dt, cmd, data_count, data);
+                
+                // 调试输出格式化的MIPI指令
+                _DEBUG("MIPI_WR(0x%02X, 0x%02X", dt, cmd);
+                for (int i = 0; i < data_count; i++) {
+                    _DEBUG(", 0x%02X", data[i]);
+                }
+                _DEBUG(");\n");
+            }
+        }
     }
 }
 int pcui_setCmd(const char *format, ...)
@@ -448,6 +620,18 @@ int pcui_setCmd(const char *format, ...)
     char *setDataStr[] = {pcui.dataStr};
     
     return pcui_recData(&pcui.pcuiRecType, setDataStr, sizeof(setDataStr) / sizeof(setDataStr[0]), 0, 2000);
+}
+void SPI_WriteParams(unsigned char  DT, unsigned char *params, int count) 
+{
+    if (count == 0) return;
+    if (count == 1) {
+        SPI_SendX(DT, params[0], -1);
+    } else {
+        // 递归或循环展开（需根据 SPI_SendX 的实际行为调整）
+        for (int i = 0; i < count; i++) {
+            SPI_SendX(DT, params[i], (i == count - 1) ? -1 : 0); // 假设 -1 是终止符
+        }
+    }
 }
 
 /*需要放入main.c的代码*/

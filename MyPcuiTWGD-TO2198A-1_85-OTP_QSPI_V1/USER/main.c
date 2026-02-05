@@ -39,7 +39,8 @@
 // #include "gammaLinear.h"
 // #include "gammaRun.h"
 #include <string.h>
-
+#include "qspi_lcd.h"
+#include "in_img2.h"
 // #include "lmt_gamma.h"
 
 #define HOT_KEY 0 // 热拔插
@@ -92,7 +93,12 @@ u8 auto_switch_mode = 0;  //=0 按键切换； =1自动切换
 u8 OTP_times = 0;
 unsigned char OTP_flag = 0;
 uint8_t l_OTP_times = 0;
-u8 CH_NUM = 0; // 通道 华尔升暂定0通道
+uint8_t  White_frame  = 0;
+uint8_t  Black_frame    = 0;
+uint8_t  OK_frame     = 0;
+uint8_t  NG_frame     = 0;
+uint8_t  CH_NUM = 0 ;//通道 
+uint8_t  OTP_Flag     = 0;
 
 unsigned char OTP_HUO = 0; // 烧录后的光学标志位
 unsigned int CHECKER_FLAG = 0;
@@ -102,7 +108,7 @@ u8 allcode_falg2 = 0;
 PowerMeasureTypeDef g_power_meas;
 WaveMeasureTypeDef g_meter_meas;
 XYLvTypeDef XYLv;
-// InImg2_Adapter img2_adapter;		//QSPI的送图
+InImg2_Adapter img2_adapter;		//QSPI的送图
 
 unsigned int ID_1 = 0;
 unsigned int ID_2 = 0;
@@ -130,7 +136,7 @@ void code_init(void);
 void LCD_RST_0(void);
 void LCD_RST_1(void);
 void Check_gamma_Register(userContrlStruct *user);
-void NVM_ALL(userContrlStruct *user);
+int NVM_ALL(userContrlStruct *user); 
 void Panel_Read(void);
 void Display_ON1(void);
 
@@ -202,6 +208,7 @@ void LCD_RST_1(void)
 {
     GPIO_SetBits(GPIOB, GPIO_Pin_7);
 }
+
 void AVDD_EN_0(void)
 {
 	GPIO_ResetBits(GPIOB, GPIO_Pin_1);
@@ -288,6 +295,7 @@ int main(void)
 	// AOI机台通讯上用到
 	char get_cmd_str[64] = {0};
 	char id_str[64] = {0};
+	int frame_ms;
 	float G_x[25], G_y[25], G_Lv[25], G_Gamma[25];
 	char string_buffer[64];
 
@@ -319,7 +327,7 @@ int main(void)
 	// GAMMA_Init();
 	Gamma_dev.write = usart1_write;
 	/**/
-	MONITOR_SetName(WAVE1_NAME, "PWM");
+    MONITOR_SetName(WAVE1_NAME, "PWM");
 	MONITOR_SetName(WAVE2_NAME, "TE");
 	MONITOR_SetName(VDD1_NAME, "VDDI");
 	MONITOR_SetName(VDD2_NAME, "VBAT");
@@ -329,17 +337,17 @@ int main(void)
 
 	CFL_Set_CH(CFL_ID0, &CH_NUM); /////切换通道
 	/*显示项目名称*/
-	Power_SetMonitorStringName(1, "TWGD-D1535A0-GAMMA-V01");
+	Power_SetMonitorStringName(1, "TWGD-SA2057A-MIPI-V01");
 	/*-----LCD 参数设定---*/
 	/*LCD 接口模式*/
-	gLCD_IFMODE = MIPI_VIDEO_1LANE;
+   gLCD_IFMODE = MIPI_VIDEO_1LANE;
 
-	/*分辨率设置*/
+	/*?????????*/
 	gLCD_XSIZE = 340;
 	gLCD_YSIZE = 340;
 
-	/*VIDEO模式 RGB时序设置，只VIDEO模式有效*/
-	gLCD_PCLK = 30; // 单位MHz 精度0.1MHz
+	/*VIDEO?? RGB?????????VIDEO????Ч*/
+	gLCD_PCLK = 30; // ??λMHz ????0.1MHz
 
 	gLCD_HBPD = 18;
 	gLCD_HFPD = 18;
@@ -390,6 +398,10 @@ int main(void)
 
 	ShowString_2_Config(SPI_RGB, SPI_DispArea);
 	SDCard_2_Confg(1, SPI_Send_Dat, SPI_DispArea);
+	// QSPI_LCD_IO_Init();
+    // InImg2_Init(&img2_adapter, 390, 450, QSPI_LCD_WriteRGB, QSPI_LCD_GotoXY); //要用到in_img2 软件产生画面
+    // ShowString_2_Config(QSPI_LCD_WriteRGB, QSPI_LCD_GotoXY); //字符串显示
+    // SDCard_2_Confg(1,QSPI_LCD_WrByte,QSPI_LCD_GotoXY);   //SD卡SPI模式
     while (1)
     {
 
@@ -455,10 +467,9 @@ int main(void)
     }
 }
 
-
 /*切换画面控制，画面测量 报警设置等*/
 void SwitchFrame(unsigned int frame)
-{
+{   
     switch (frame)
 	{
 	case 0:
@@ -549,7 +560,6 @@ void Display_ON(void)
 	display_on = 1;
 	_DEBUG("Display ON\n\r");
 }
-
 /*上电顺序(不下初始化)*/
 void Display_ON1(void)
 {
@@ -1250,56 +1260,104 @@ void Panel_Read(void)
 	_DEBUG("OTP_times:%d\n\r",OTP_times);
 }
 
-void NVM_ALL(userContrlStruct *user)
+
+int NVM_ALL(userContrlStruct *user)  
 {
-  	
 		int res=1;
 		int us;
 		uint8_t l_OTP_times=OTP_times;
+		unsigned char ReadCode[32];
+		unsigned char C9_data,C4_data,AE_data1,AE_data2,AE_data3,AE_data4;
+
+#if GAMMA_FLAG == 0
+		// ===  CMD2 password  ===
+		QSPI_LCD_WriteCmd(0xFE, 0x20);
+		QSPI_LCD_WriteCmd(0xF4, 0x5A);
+		QSPI_LCD_WriteCmd(0xF5, 0x59);
 	
-	_DEBUG("OTP_START\r\n");
-
-	//=========================================================
-	// ICNA3310 new OTP flow for internal power
-	//=========================================================
-	// CMD2 password
-	SPI_Write(0xFE,0x20);
-	SPI_Write(0xF4,0x5A);
-	SPI_Write(0xF5,0x59);
-
-	//****** initial code whitch need to be programmed  *****//
-
-	SPI_Write(0xFE,0x00);
-	SPI_Write_cmd(0x28);  //display off
-	SPI_Write_cmd(0x11);  //sleep out
-	Delay_ms(150);
-	POWER_SetVDD(3, 8.25); 
-	Delay_ms(1000);
-
-	//// OTP Programming for internal power supply
-	SPI_Write(0xfe,0x40);
-	SPI_Write(0xed,0x9B); //CMD2 some page OTP enable
-	SPI_Write(0xee,0xFF); //CMD2 some page OTP enable
-
-	SPI_Write(0xfe,0x40);
-	SPI_Write(0xf2,0x03);//extern power supply
-
-	SPI_Write(0xfe,0x40); // OTP program key
-	SPI_Write(0xf3,0xa5);
-	SPI_Write(0xf4,0x5a);
-	SPI_Write(0xf5,0x3c);
-
-	Delay_ms(4500); 
 	
-	POWER_SetVDD(3, 0); 
-	Delay_ms(500); 
-	//Hardware Reset
-	Display_OFF();
-	Delay_ms(800);
-	Display_ON();
-	_DEBUG("OTP_END\n\r");
+		_DEBUG("OTP_START\r\n");
+
+		QSPI_LCD_WriteCmd(0xFE, 0x00);
+		QSPI_LCD_WriteCmd(0x11,0x00);	
+		Delay_ms(120);
+		QSPI_LCD_WriteCmd(0x29,0x00);	
+		Delay_ms(20);
+		QSPI_LCD_WriteCmd(0xFE, 0x00);
+		QSPI_LCD_WriteCmd(0x28,0x00);	
+		Delay_ms(150);
+		POWER_SetVDD(3, 8.3);//MTP_PWR  ON
+		Delay_ms(1000);
 	
-}
+
+		QSPI_LCD_WriteCmd(0xFE,0x40); 
+		QSPI_LCD_WriteCmd(0xED,0x9B);  
+		QSPI_LCD_WriteCmd(0xEE,0xFF);  
+
+
+		// 3）Enable OTP_Power
+		QSPI_LCD_WriteCmd(0xFE,0x40); 
+		QSPI_LCD_WriteCmd(0xF2,0x03);
+
+
+		// 4) Star Programming Command Sequence :
+		QSPI_LCD_WriteCmd(0xFE,0x40); 
+		QSPI_LCD_WriteCmd(0xF3,0xA5);
+		QSPI_LCD_WriteCmd(0xF4,0x5A);
+		QSPI_LCD_WriteCmd(0xF5,0x3C);
+		
+		Delay_ms(4500);
+		
+		POWER_SetVDD(3, 0);//MTP_PWR  OFF
+		Delay_ms(500);
+		_DEBUG("Display_OFF\r\nDisplay_ON\r\n");
+		Display_OFF();
+		Delay_ms(500);
+		Display_ON();
+
+		if(OTP_times - l_OTP_times != 1)
+		{
+			_DEBUG("OTP NG %d\r\n", OTP_times - l_OTP_times);
+			SDCard_Printf(scancode,"OTP NG %d\r\n", OTP_times - l_OTP_times);
+			return -1;
+		}
+		else
+		{
+			_DEBUG("OTP OK %d\r\n", OTP_times - l_OTP_times);
+			SDCard_Printf(scancode,"OTP OK %d\r\n", OTP_times - l_OTP_times);
+		}
+#endif
+/************************************ReadALLcode*************************************/		
+		_DEBUG("ReadALLcode Cheak Start\r\n");
+		SDCard_Printf(scancode,"ReadALLcode Cheak Start\r\n");
+		us=ReadALLcode();        //回读全code
+		if(us<0)
+		{
+			res = -1;
+		}
+		_DEBUG("ReadALLcode Cheak end\r\n\r\n");
+		SDCard_Printf(scancode,"ReadALLcode Cheak end\r\n\r\n");
+/**********************************Gamma Cheak**************************************/		
+		_DEBUG("Gamma Cheak Start\r\n");
+		SDCard_Printf(scancode,"Gamma Cheak Start\r\n");
+		us=Check_GAMMA();
+		if(us>0)
+		{
+			_DEBUG("Gamma Cheak OK\r\n");
+			SDCard_Printf(scancode,"Gamma Cheak OK\r\n");
+		}
+		else
+		{
+			_DEBUG("Gamma Cheak NG\r\n");
+			SDCard_Printf(scancode,"Gamma Cheak NG\r\n");
+			res = -1;
+		}
+		_DEBUG("Gamma Cheak end\r\n\r\n");
+		SDCard_Printf(scancode,"Gamma Cheak end\r\n\r\n");
+
+		return res;
+}  
+
 
 /**********************************Gamma Cheak**************************************/
 

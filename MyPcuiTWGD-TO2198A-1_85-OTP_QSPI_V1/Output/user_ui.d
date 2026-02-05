@@ -56,6 +56,7 @@
 .\output\user_ui.o: USER\stm_spi.h
 .\output\user_ui.o: .\S10DRV\sysio.h
 .\output\user_ui.o: .\S10DRV\S10.h
+.\output\user_ui.o: USER\qspi_lcd.h
 .\output\user_ui.o: C:\app\Keil5\ARM\ARMCC\Bin\..\include\stdarg.h
 .\output\user_ui.o: .\skyLib\pcui.h
 .\output\user_ui.o: .\skySoftware\include\communication.h

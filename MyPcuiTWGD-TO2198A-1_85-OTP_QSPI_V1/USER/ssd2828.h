@@ -176,7 +176,7 @@ unsigned int SSD2828_GenericReadDT14(u8 reg, u16 len, u8 *p);
           3. data_array - 要MIPI传送的数组
 *返回   : 无
 */
-void MIPI_WrArray(u8 DT, int len, u8 *data_array);
+void MIPI_WrArray(u8 DT,unsigned char cmd, int len, u8 *data_array);
 
 /*2828底层写操作*/
 void SSD2828_WriteData(unsigned char dat);
